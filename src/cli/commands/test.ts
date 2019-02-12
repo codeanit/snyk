@@ -249,21 +249,24 @@ function displayResult(res, options) {
   }
   let summary = testedInfoText + ', ' + chalk.red.bold(vulnCountText);
 
-  if (options['user-layer'] && res.vulnerabilities) {
-    res.vulnerabilities =  res.vulnerabilities.filter((vuln) => (vuln.dockerfileInstruction));
+  if (options.docker && options.file && res.vulnerabilities) {
+    const nonBaseImageVulns =  res.vulnerabilities.filter((vuln) => (vuln.dockerfileInstruction));
+    if (options['exclude-base-image-vulns']) {
+      res.vulnerabilities = nonBaseImageVulns;
+    }
     let userUniqueCount = 0;
     const seen = {};
-    userUniqueCount = res.vulnerabilities.reduce((acc, curr) => {
+    userUniqueCount = nonBaseImageVulns.reduce((acc, curr) => {
       if (!seen[curr.id]) {
         seen[curr.id] = true;
         acc++;
       }
       return acc;
     }, 0);
-    const userLayerVulnText = userUniqueCount === 1 ? 'vulnerability' : 'vulnerabilities';
-    const userLayerText = '\nOut of which ' + chalk.bold.red(`${userUniqueCount} ${userLayerVulnText}`) +
-    ' introduced in the Docker user layer.';
-    summary += userLayerText;
+    const layersVulnsCount = '\nVulnerabilities introduced by your base image: ' +
+      chalk.bold.red(`${res.uniqueCount - userUniqueCount}.`) +
+      '\nVulnerabilities introduced by other layers: ' + chalk.bold.red(`${userUniqueCount}.`);
+    summary += layersVulnsCount;
   }
 
   if (WIZARD_SUPPORTED_PMS.indexOf(packageManager) > -1) {
@@ -277,12 +280,12 @@ function displayResult(res, options) {
     if (!options.file) {
       dockerSuggestion += chalk.bold.white('\n\nPro tip: use `--file` option to get base image remediation advice.' +
       `\nExample: $ snyk test --docker ${options.path} --file=path/to/Dockerfile`);
-    }
-    if (!options['user-layer']) {
+    } else if (!options['exclude-base-image-vulns']) {
       dockerSuggestion +=
-      chalk.bold.white('\n\nNew flag: use `--user-layer` to display user layer vulnerabilites only.');
+      chalk.bold.white(
+        '\n\nPro tip: use `--exclude-base-image-vulns` to exclude from display Docker base image vulnerabilities.');
     }
-    if (!options.file || !options['user-layer']) {
+    if (!options.file || !options['exclude-base-image-vulns']) {
       dockerSuggestion += optOutSuggestions;
     }
   }
