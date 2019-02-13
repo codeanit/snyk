@@ -249,25 +249,7 @@ function displayResult(res, options) {
   }
   let summary = testedInfoText + ', ' + chalk.red.bold(vulnCountText);
 
-  if (options.docker && options.file && res.vulnerabilities) {
-    const nonBaseImageVulns =  res.vulnerabilities.filter((vuln) => (vuln.dockerfileInstruction));
-    if (options['exclude-base-image-vulns']) {
-      res.vulnerabilities = nonBaseImageVulns;
-    }
-    let userUniqueCount = 0;
-    const seen = {};
-    userUniqueCount = nonBaseImageVulns.reduce((acc, curr) => {
-      if (!seen[curr.id]) {
-        seen[curr.id] = true;
-        acc++;
-      }
-      return acc;
-    }, 0);
-    const layersVulnsCount = '\nVulnerabilities introduced by your base image: ' +
-      chalk.bold.red(`${res.uniqueCount - userUniqueCount}.`) +
-      '\nVulnerabilities introduced by other layers: ' + chalk.bold.red(`${userUniqueCount}.`);
-    summary += layersVulnsCount;
-  }
+  summary += getDockerLayersVulnCount(options, res);
 
   if (WIZARD_SUPPORTED_PMS.indexOf(packageManager) > -1) {
     summary += chalk.bold.green('\n\nRun `snyk wizard` to address these issues.');
@@ -276,14 +258,14 @@ function displayResult(res, options) {
   if (options.docker &&
     (config.disableSuggestions !== 'true')) {
     const optOutSuggestions =
-    '\n\nTo remove this message in the future, please run `snyk config set disableSuggestions=true`';
+      '\n\nTo remove this message in the future, please run `snyk config set disableSuggestions=true`';
     if (!options.file) {
       dockerSuggestion += chalk.bold.white('\n\nPro tip: use `--file` option to get base image remediation advice.' +
-      `\nExample: $ snyk test --docker ${options.path} --file=path/to/Dockerfile`);
+        `\nExample: $ snyk test --docker ${options.path} --file=path/to/Dockerfile`);
     } else if (!options['exclude-base-image-vulns']) {
       dockerSuggestion +=
-      chalk.bold.white(
-        '\n\nPro tip: use `--exclude-base-image-vulns` to exclude from display Docker base image vulnerabilities.');
+        chalk.bold.white(
+          '\n\nPro tip: use `--exclude-base-image-vulns` to exclude from display Docker base image vulnerabilities.');
     }
     if (!options.file || !options['exclude-base-image-vulns']) {
       dockerSuggestion += optOutSuggestions;
@@ -655,4 +637,27 @@ function metadataForVuln(vuln) {
     version: vuln.version,
     packageManager: vuln.packageManager,
   };
+}
+
+function getDockerLayersVulnCount(options, res): string {
+  if (options.docker && options.file && res.vulnerabilities) {
+    const nonBaseImageVulns = res.vulnerabilities.filter((vuln) => (vuln.dockerfileInstruction));
+    if (options['exclude-base-image-vulns']) {
+      res.vulnerabilities = nonBaseImageVulns;
+    }
+    let userUniqueCount = 0;
+    const seen = {};
+    userUniqueCount = nonBaseImageVulns.reduce((acc, curr) => {
+      if (!seen[curr.id]) {
+        seen[curr.id] = true;
+        acc++;
+      }
+      return acc;
+    }, 0);
+    const layersVulnsCount = '\nVulnerabilities introduced by your base image: ' +
+      chalk.bold.red(`${res.uniqueCount - userUniqueCount}.`) +
+      '\nVulnerabilities introduced by other layers: ' + chalk.bold.red(`${userUniqueCount}.`);
+    return layersVulnsCount;
+  }
+  return '';
 }
